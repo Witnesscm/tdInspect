@@ -50,7 +50,6 @@ ns.GetClassFileName = memorize(function(classId)
         return
     end
     local classInfo = C_CreatureInfo.GetClassInfo(classId)
-    dump(classInfo)
     return classInfo and classInfo.classFile
 end)
 
