@@ -28,8 +28,8 @@ function InspectTalent:Constructor()
 
     local TalentFrame = ns.UI.TalentFrame:New(self)
     TalentFrame:SetPoint('TOPLEFT', 23, -77)
-    TalentFrame:SetSize(320, 353)
-    TalentFrame.initialOffsetX = 65
+    TalentFrame:SetSize(296, 353)
+    TalentFrame.initialOffsetX = 55
     TalentFrame.initialOffsetY = 13
 
     self.TalentFrame = TalentFrame
@@ -72,6 +72,8 @@ end
 function InspectTalent:UpdateInfo()
     local class = Inspect:GetUnitClassFileName()
     local talent = Inspect:GetUnitTalent()
+	
+    if not talent then return end
 
     self.TalentFrame:SetTalent(class, talent)
 

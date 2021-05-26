@@ -20,6 +20,10 @@ local Addon = LibStub('AceAddon-3.0'):NewAddon('tdInspect', 'LibClass-2.0', 'Ace
 ns.Addon = Addon
 
 function Addon:OnInitialize()
+    self.db = TDDB_INSPECT or {}
+    TDDB_INSPECT = self.db
+    self.db["ShowModel"] = self.db["ShowModel"] or false
+
     for class, tabs in pairs(ns.Talents) do
         for _, tab in ipairs(tabs) do
             for _, talent in ipairs(tab.talents) do

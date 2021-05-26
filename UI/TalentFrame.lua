@@ -10,12 +10,12 @@ local rshift = bit.rshift
 local GameTooltip = GameTooltip
 
 ---@type tdInspectTalentFrame
-local TalentFrame = ns.Addon:NewClass('UI.TalentFrame', 'Frame')
+local TalentFrame = ns.Addon:NewClass('UI.TalentFrame', 'ScrollFrame.UIPanelScrollFrameTemplate')
 
 local MAX_TALENT_TABS = 3
-local MAX_NUM_TALENT_TIERS = 7
+local MAX_NUM_TALENT_TIERS = 9
 local NUM_TALENT_COLUMNS = 4
-local MAX_NUM_TALENTS = 28
+local MAX_NUM_TALENTS = 40
 local PLAYER_TALENTS_PER_TIER = 5
 
 local TALENT_BUTTON_SIZE_DEFAULT = 32
@@ -73,14 +73,20 @@ function TalentFrame:Constructor()
     BottomRight:SetPoint('TOPLEFT', TopLeft, 'BOTTOMRIGHT')
     BottomRight:SetTexCoord(0, 44 / 64, 0, 74 / 128)
 
-    local ArrowParent = CreateFrame('Frame', nil, self)
+    local ScrollChild = CreateFrame("Frame", nil, self)
+    ScrollChild:SetSize(296, 353)
+    ScrollChild:SetPoint("TOPLEFT")
+    self:SetScrollChild(ScrollChild)
+
+    local ArrowParent = CreateFrame('Frame', nil, ScrollChild)
     ArrowParent:SetAllPoints(true)
-    ArrowParent:SetFrameLevel(self:GetFrameLevel() + 100)
+    ArrowParent:SetFrameLevel(ScrollChild:GetFrameLevel() + 100)
 
     self.TopLeft = TopLeft
     self.TopRight = TopRight
     self.BottomLeft = BottomLeft
     self.BottomRight = BottomRight
+    self.ScrollChild = ScrollChild
     self.ArrowParent = ArrowParent
 
     self:SetScript('OnSizeChanged', self.OnSizeChanged)
@@ -103,7 +109,7 @@ function TalentFrame:Constructor()
 end
 
 local function TalentOnEnter(button)
-    button:GetParent():ShowTooltip(button)
+    button.__owner:ShowTooltip(button)
 end
 
 local function AddLine(line)
@@ -147,9 +153,10 @@ end
 
 function TalentFrame:GetTalentButton(i)
     if not self.buttons[i] then
-        local button = CreateFrame('Button', nil, self, 'ItemButtonTemplate')
+        local button = CreateFrame('Button', nil, self.ScrollChild, 'ItemButtonTemplate')
         button:SetSize(self.talentButtonSize, self.talentButtonSize)
         button:SetID(i)
+        button.__owner = self
         button:SetScript('OnEnter', TalentOnEnter)
         button:SetScript('OnLeave', GameTooltip_Hide)
 
@@ -398,7 +405,7 @@ end
 function TalentFrame:GetBranchTexture()
     local texture = self.brancheTextures[self.textureIndex]
     if not texture then
-        texture = self:CreateTexture(nil, 'ARTWORK')
+        texture = self.ScrollChild:CreateTexture(nil, 'ARTWORK')
         texture:SetSize(30, 30)
         texture:SetTexture([[Interface\TalentFrame\UI-TalentBranches]])
         self.brancheTextures[self.textureIndex] = texture

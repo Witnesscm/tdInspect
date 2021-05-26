@@ -177,12 +177,13 @@ function Inspect:Query(unit, name)
 
     self:SetUnit(unit, name)
 
-    local queryTalent = true
-    local queryEquip = true
+    local queryTalent = false
+    local queryEquip = false
 
     if unit and CheckInteractDistance(unit, 1) and CanInspect(unit) then
         NotifyInspect(unit)
     else
+        queryTalent = true
         queryEquip = true
     end
 

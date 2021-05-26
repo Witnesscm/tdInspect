@@ -74,8 +74,10 @@ function PaperDoll:Constructor()
         ToggleButton:SetNormalFontObject('GameFontNormalSmall')
         ToggleButton:SetHighlightFontObject('GameFontHighlightSmall')
         ToggleButton:SetText(L['Show Modal'])
+        ToggleButton:SetChecked(ns.Addon.db["ShowModel"])
 
         ToggleButton:SetScript('OnClick', function()
+            ns.Addon.db["ShowModel"] = not ns.Addon.db["ShowModel"]
             return self:UpdateInset()
         end)
     end
@@ -100,6 +102,7 @@ function PaperDoll:Constructor()
     self.ModalFrame = ns.UI.ModalFrame:Bind(self:CreateInsetFrame())
     self.EquipFrame = ns.UI.EquipFrame:Bind(self:CreateInsetFrame())
 
+    self:UpdateInset()
     self:SetScript('OnShow', self.OnShow)
     self:SetScript('OnHide', self.OnHide)
 end

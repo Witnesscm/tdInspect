@@ -81,14 +81,15 @@ end
 function InspectFrame:AddTab(text)
     local id = self.numTabs + 1
     local tab = CreateFrame('Button', 'InspectFrameTab' .. id, self, 'CharacterFrameTabButtonTemplate')
-    tab:SetPoint('LEFT', _G['InspectFrameTab' .. self.numTabs], 'RIGHT', -16, 0)
+    tab:SetPoint('LEFT', _G['InspectFrameTab' .. (self.numTabs - 1)], 'RIGHT', -16, 0)
     tab:SetID(id)
     tab:SetText(text)
     tab:SetScript('OnClick', InspectFrameTab_OnClick)
     tab:SetScript('OnLeave', GameTooltip_Hide)
     tab:SetScript('OnEnter', TabOnEnter)
     tab.text = text
-    PanelTemplates_SetNumTabs(self, 3)
+    tab:Hide()
+    PanelTemplates_SetNumTabs(self, id)
 
     ---@type Frame
     local frame = CreateFrame('Frame', nil, self)
@@ -171,9 +172,13 @@ end
 
 function InspectFrame:UpdateTabs()
     if Inspect:GetUnitTalent() and Inspect:GetUnitClassFileName() then
-        PanelTemplates_EnableTab(self, 3)
+        PanelTemplates_EnableTab(self, 4)
+        _G.InspectFrameTab3:Hide()
+        _G.InspectFrameTab4:Show()
     else
-        PanelTemplates_DisableTab(self, 3)
+        PanelTemplates_DisableTab(self, 4)
+        _G.InspectFrameTab3:Show()
+        _G.InspectFrameTab4:Hide()
     end
 
     if Inspect.unit and CheckInteractDistance(Inspect.unit, 1) and CanInspect(Inspect.unit) then
