@@ -207,6 +207,21 @@ function Ala:DecodeGlyph(code)
     end
 end
 
+function Ala:DecodeEngraving(code)
+    local data = {}
+    local val = { strsplit('+', code) }
+    for i = 1, #val do
+        local slot, id, icon = strsplit(':', val[i])
+        slot = slot and __debase64[slot] or nil
+        id = id and DecodeNumber(id) or nil
+        icon = icon and DecodeNumber(icon) or nil
+        if slot ~= nil and id ~= nil then
+            data[slot] = { id, icon or select(3, GetSpellInfo(id)) or nil}
+        end
+    end
+    return data
+end
+
 function Ala:RecvEquipmentV1(code)
     local c = strsplit('#', code)
     local equips = self:DecodeEquipmentV1(c)
@@ -409,6 +424,25 @@ function Ala:RecvEquipmentV2(code)
     end
 end
 
+function Ala:RecvEngravingV2Step2(code)
+    local engravings = self:DecodeEngraving(code)
+    if not engravings then
+        return
+    end
+    return {engravings = engravings}
+end
+
+function Ala:RecvEngravingV2(code)
+    if strsub(code, 1, 2) ~= '!N' then
+        return
+    end
+    local clientMajor = __debase64[strsub(code, 3, 3)]
+    if clientMajor ~= CLIENT_MAJOR then
+        return
+    end
+    return self:RecvEngravingV2Step2(strsub(code, 5))
+end
+
 local function merge(dst, src)
     if not dst then
         return src
@@ -441,6 +475,8 @@ function Ala:RecvCommV2(msg, sender)
             r = merge(r, self:RecvGlyphV2(code))
         elseif v2_ctrl_code == '!E' then
             r = merge(r, self:RecvEquipmentV2(code))
+        elseif v2_ctrl_code == '!N' then
+            r = merge(r, self:RecvEngravingV2(code))
         end
     end
     return r

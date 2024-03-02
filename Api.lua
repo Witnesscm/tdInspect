@@ -95,9 +95,6 @@ function ns.FixInspectItemTooltip(tip)
     tip = LibStub('LibTooltipExtra-1.0'):New(tip)
 
     ns.FixItemSets(tip, id)
-    -- @non-classic@
-    ns.FixMetaGem(tip, link)
-    -- @end-non-classic@
 
     tip:Show()
 end
@@ -115,13 +112,4 @@ end
 local cache = {}
 function ns.GetItemGems(link, out)
     return FillGem(out or wipe(cache), link:match('item:%d+:?[-%d]*:?(%d*):?(%d*):?(%d*):?(%d*)'))
-    -- out = out or wipe(cache)
-    -- for i = 1, 4 do
-    --     local _, gemLink = GetItemGem(link, i)
-    --     local gemId = gemLink and ns.ItemLinkToId(gemLink)
-    --     if gemId then
-    --         tinsert(out, gemId)
-    --     end
-    -- end
-    -- return out
 end

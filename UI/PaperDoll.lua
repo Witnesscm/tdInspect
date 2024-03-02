@@ -102,7 +102,6 @@ function PaperDoll:Constructor()
     self.ModelFrame = ns.UI.ModelFrame:Bind(self:CreateInsetFrame())
     self.EquipFrame = ns.UI.EquipFrame:Bind(self:CreateInsetFrame())
 
-    self:UpdateInset()
     self:SetScript('OnShow', self.OnShow)
     self:SetScript('OnHide', self.OnHide)
 end

@@ -37,11 +37,29 @@ function SlotItem:Constructor()
     self.IconBorder:SetPoint('CENTER')
     self.IconBorder:SetSize(67, 67)
 
-    self.UpdateTooltip = self.OnEnter
+    local RuneFrame = CreateFrame('Frame', nil, self)
+    RuneFrame:SetSize(16, 16)
+    RuneFrame:SetPoint('TOPRIGHT')
+    RuneFrame:SetScript('OnEnter', function(frame)
+        if frame.spellId then
+            GameTooltip:SetOwner(frame, 'ANCHOR_RIGHT')
+            GameTooltip:ClearLines()
+            GameTooltip:SetSpellByID(frame.spellId)
+            GameTooltip:Show()
+        end
+    end)
+    RuneFrame:SetScript('OnLeave', GameTooltip_Hide)
+
+    local RuneIcon = RuneFrame:CreateTexture(nil, 'OVERLAY')
+    RuneIcon:SetAllPoints()
+
+    self.RuneFrame = RuneFrame
+    self.RuneIcon = RuneIcon
 
     self:SetScript('OnClick', self.OnClick)
     self:SetScript('OnEnter', self.OnEnter)
     self:SetScript('OnShow', self.OnShow)
+    self.UpdateTooltip = self.OnEnter
 end
 
 function SlotItem:OnShow()
@@ -75,6 +93,14 @@ function SlotItem:Update()
     end
 
     self.hasItem = item
+    self:UpdateRuneIcons()
+end
+
+function SlotItem:UpdateRuneIcons()
+    local runeInfo = Inspect:GetRuneForEquipmentSlot(self:GetID())
+    self.RuneFrame:SetShown(not not runeInfo)
+    self.RuneFrame.spellId = runeInfo and runeInfo[1]
+    self.RuneIcon:SetTexture(runeInfo and runeInfo[2])
 end
 
 function SlotItem:UpdateBorder(r, g, b)
@@ -99,12 +125,14 @@ end
 
 function SlotItem:OnEnter()
     GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
-    local item = Inspect:GetItemLink(self:GetID())
-    if item then
-        GameTooltip:SetHyperlink(item)
-        ns.FixInspectItemTooltip(GameTooltip)
-    else
-        GameTooltip:SetText(_G[strupper(strsub(self:GetName(), 8))])
+    if not (InspectFrame.unit and GameTooltip:SetInventoryItem(InspectFrame.unit, self:GetID())) then
+        local item = Inspect:GetItemLink(self:GetID())
+        if item then
+            GameTooltip:SetHyperlink(item)
+            ns.FixInspectItemTooltip(GameTooltip)
+        else
+            GameTooltip:SetText(_G[strupper(strsub(self:GetName(), 8))])
+        end
     end
     CursorUpdate(self)
 end

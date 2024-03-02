@@ -267,12 +267,7 @@ end
 
 function Encoder:PackTalents(isInspect)
     local data = {}
-    -- @build<3@
     local numGroups = 1
-    -- @end-build<3@
-    -- @build>3@
-    local numGroups = GetNumTalentGroups(isInspect)
-    -- @end-build>3@
     for i = 1, numGroups do
         data[i] = self:PackTalent(isInspect, i, isInspect)
     end
@@ -295,6 +290,44 @@ function Encoder:UnpackTalents(code)
     local data = strsplittable(MAJOR_SEP, code)
     for i, v in ipairs(data) do
         data[i] = self:UnpackTalent(v)
+    end
+    return data
+end
+
+function Encoder:PackEngraving(slot)
+    if C_Engraving.IsEquipmentSlotEngravable(slot) then
+        local info = C_Engraving.GetRuneForEquipmentSlot(slot)
+        local spellId = info and info.learnedAbilitySpellIDs and info.learnedAbilitySpellIDs[info.level]
+        local icon = info and info.iconTexture or ''
+        if spellId then
+            return tconcat({Encoder:EncodeInteger(spellId), Encoder:EncodeInteger(icon)}, MINOR_SEP)
+        end
+    end
+end
+
+function Encoder:PackEngravings()
+    local data = {}
+    for i = 1, 18 do
+        data[i] = Encoder:PackEngraving(i) or ''
+    end
+    return tconcat(data, MAJOR_SEP)
+end
+
+function Encoder:UnpackEngraving(code)
+    if code == '' then
+        return
+    end
+    local data = strsplittable(MINOR_SEP, code)
+    for i, v in ipairs(data) do
+        data[i] = self:DecodeInteger(v)
+    end
+    return data
+end
+
+function Encoder:UnpackEngravings(code)
+    local data = strsplittable(MAJOR_SEP, code)
+    for i, v in ipairs(data) do
+        data[i] = self:UnpackEngraving(v)
     end
     return data
 end

@@ -155,58 +155,12 @@ function Inspect:IsItemEquipped(itemId)
     end
 end
 
--- @non-classic@
-local GEM_COLORS = {
-    [Enum.ItemGemSubclass.Red] = {Enum.ItemGemSubclass.Red},
-    [Enum.ItemGemSubclass.Yellow] = {Enum.ItemGemSubclass.Yellow},
-    [Enum.ItemGemSubclass.Blue] = {Enum.ItemGemSubclass.Blue},
-    [Enum.ItemGemSubclass.Orange] = {Enum.ItemGemSubclass.Red, Enum.ItemGemSubclass.Yellow},
-    [Enum.ItemGemSubclass.Purple] = {Enum.ItemGemSubclass.Red, Enum.ItemGemSubclass.Blue},
-    [Enum.ItemGemSubclass.Green] = {Enum.ItemGemSubclass.Yellow, Enum.ItemGemSubclass.Blue},
-    [Enum.ItemGemSubclass.Prismatic] = {
-        Enum.ItemGemSubclass.Red, Enum.ItemGemSubclass.Yellow, Enum.ItemGemSubclass.Blue,
-    },
-}
-
-local function CheckGem(out, itemId)
-    if not itemId or itemId == 0 then
-        return
-    end
-
-    local classId, subClassId = select(6, GetItemInfoInstant(itemId))
-    if classId ~= Enum.ItemClass.Gem then
-        return
-    end
-
-    local gemColors = GEM_COLORS[subClassId]
-    if not gemColors then
-        return
-    end
-
-    for _, v in ipairs(gemColors) do
-        out[v] = (out[v] or 0) + 1
-    end
-end
-
-function Inspect:GetEquippedGemCounts()
-    local out = {}
-    for slot = 1, 18 do
-        local link = self:GetItemLink(slot)
-        if link then
-            for _, itemId in ipairs(ns.GetItemGems(link)) do
-                CheckGem(out, itemId)
-            end
-        end
-    end
-    return out
-end
--- @end-non-classic@
-
 function Inspect:GetEquippedSetItems(id)
     local count = 0
     local items = {}
     local overrideNames = {}
-    local slotItems = ns.ItemSets[id].slots
+    local slotItems = ns.ItemSets[id] and ns.ItemSets[id].slots
+    if not slotItems then return end
 
     for slot = 1, 18 do
         local link = self:GetItemLink(slot)
@@ -296,6 +250,10 @@ function Inspect:GetUnitGlyph(group)
     return self.glyphs[group or self:GetActiveTalentGroup()]
 end
 
+function Inspect:GetRuneForEquipmentSlot(slot)
+    return self.db.engravings and self.db.engravings[slot]
+end
+
 function Inspect:GetLastUpdate()
     return self.db.timestamp
 end
@@ -304,11 +262,11 @@ function Inspect:CanBlizzardInspect(unit)
     if not unit then
         return false
     end
-    -- @debug@
+    --[=[@debug@
     if UnitIsUnit(unit, 'player') then
         return false
     end
-    -- @end-debug@
+    --@end-debug@]=]
     if UnitIsDeadOrGhost('player') then
         return false
     end
@@ -344,24 +302,14 @@ function Inspect:Query(unit, name)
 
     self:SetUnit(unit, name)
 
-    local queryTalent = false
+    local queryTalent = true
     local queryEquip = false
     local queryGlyph = false
 
     if self:CanBlizzardInspect(unit) then
         NotifyInspect(unit)
-
-        -- @classic@
-        queryTalent = true
-        -- @end-classic@
-        -- @build>3@
-        queryGlyph = true
-        -- @end-build>3@
-
     elseif self:CanOurInspect(unit) then
         queryEquip = true
-        queryTalent = true
-        queryGlyph = true
     end
 
     if queryEquip or queryTalent or queryGlyph then
@@ -420,17 +368,9 @@ function Inspect:INSPECT_READY(_, guid)
         db.class = select(3, UnitClass(self.unit))
         db.race = select(3, UnitRace(self.unit))
         db.level = UnitLevel(self.unit)
-        -- @build>2@
         db.talents = Encoder:PackTalents(true)
-        -- @end-build>2@
-        -- @build>3@
-        db.numGroups = GetNumTalentGroups(true)
-        db.activeGroup = GetActiveTalentGroup(true)
-        -- @build>3@
-        -- @build<3@
         db.numGroups = 1
         db.activeGroup = 1
-        -- @end-build<3@
 
         self:TryFireMessage(self.unit, name, db)
     end
@@ -462,6 +402,9 @@ function Inspect:UpdateCharacter(sender, data)
     if data.glyphs then
         db.glyphs = data.glyphs
     end
+    if data.engravings then
+        db.engravings = data.engravings
+    end
 
     self:TryFireMessage(nil, name, db)
 end
@@ -470,12 +413,7 @@ function Inspect:OnComm(cmd, sender, ...)
     if cmd == 'Q' then
         local queryTalent, queryEquip, protoVersion, queryGlyph = ...
         if not protoVersion or protoVersion == 1 then
-            -- @build>3@
-            local talent = queryTalent and Encoder:PackTalent(nil, GetActiveTalentGroup(), true) or nil
-            -- @end-build>3@
-            -- @buid<3@
             local talent = queryTalent and Encoder:PackTalent(nil, 1, true) or nil
-            -- @end-build<3@
             local equips = queryEquip and Encoder:PackEquips(true) or nil
             local class = select(3, UnitClass('player'))
             local race = select(3, UnitRace('player'))
@@ -489,11 +427,12 @@ function Inspect:OnComm(cmd, sender, ...)
             local equips = queryEquip and Encoder:PackEquips() or nil
             local talents = queryTalent and Encoder:PackTalents() or nil
             local glyphs = queryGlyph and Encoder:PackGlyphs() or nil
+            local engravings = C_Engraving and C_Engraving.IsEngravingEnabled() and Encoder:PackEngravings() or nil
             local class = select(3, UnitClass('player'))
             local race = select(3, UnitRace('player'))
             local level = UnitLevel('player')
             local msg = Serializer:Serialize('R2', protoVersion, class, race, level, equips, numGroups, activeGroup,
-                                             talents, glyphs)
+                                             talents, glyphs, engravings)
 
             self:SendCommMessage(PROTO_PREFIX, msg, 'WHISPER', sender)
         end
@@ -530,7 +469,7 @@ function Inspect:OnComm(cmd, sender, ...)
 
         self:TryFireMessage(nil, name, db)
     elseif cmd == 'R2' then
-        local protoVersion, class, race, level, equips, numGroups, activeGroup, talents, glyphs = ...
+        local protoVersion, class, race, level, equips, numGroups, activeGroup, talents, glyphs, engravings = ...
         local name = ns.GetFullName(sender)
         local db = self:BuildCharacterDb(name)
 
@@ -553,6 +492,10 @@ function Inspect:OnComm(cmd, sender, ...)
 
         if glyphs then
             db.glyphs = Encoder:UnpackGlyphs(glyphs)
+        end
+
+        if engravings then
+            db.engravings = Encoder:UnpackEngravings(engravings)
         end
 
         self:TryFireMessage(nil, name, db)

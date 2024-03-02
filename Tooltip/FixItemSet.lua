@@ -30,6 +30,10 @@ function ns.FixItemSets(tip, id)
     end
 
     local equippedCount, itemNames, overrideNames = ns.Inspect:GetEquippedSetItems(setId)
+    if not equippedCount then
+        return
+    end
+
     local setNameLinePattern = '^(' .. setName .. '.+)(%d+)/(%d+)(.+)$'
 
     local setLine

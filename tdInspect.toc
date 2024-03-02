@@ -1,12 +1,7 @@
-#@debug@
-## Interface: 11306
-## Version: 1.0.0
-#@end-debug@
-#@project-interface@
+## Interface: 11501
 ## Title: tdInspect
 ## Author: Dencer
-## Version: @project-version@
-## OptionalDeps: LibCompress
+## Version: 2.1.4
 ## SavedVariables: TDDB_INSPECT2
 
 Load.xml
