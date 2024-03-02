@@ -2,24 +2,14 @@
 -- @Author : Dencer (tdaddon@163.com)
 -- @Link   : https://dengsir.github.io
 -- @Date   : 2/9/2020, 1:02:09 PM
----@type ns
+--
+---@class ns
 local ns = select(2, ...)
 
-local CIS = LibStub('LibClassicItemSets-1.0')
-
-local ipairs = ipairs
 local tonumber = tonumber
 local format = string.format
 
-local GetItemInfo = GetItemInfo
-local GetRealmName = GetRealmName
 local UnitFullName = UnitFullName
-
-local GameTooltip = GameTooltip
-
-local SPELL_PASSIVE = SPELL_PASSIVE
-local ITEM_SET_BONUS_GRAY_P = '^' .. ITEM_SET_BONUS_GRAY:gsub('%%s', '(.+)'):gsub('%(%%d%)', '%%((%%d+)%%)') .. '$'
-local ITEM_SET_BONUS_P = '^' .. format(ITEM_SET_BONUS, '(.+)')
 
 local function memorize(func)
     local cache = {}
@@ -86,7 +76,7 @@ function ns.GetFullName(name, realm)
     end
 
     if not realm or realm == '' then
-        realm = GetRealmName()
+        realm = GetNormalizedRealmName()
     end
     return name .. '-' .. realm
 end
@@ -95,126 +85,43 @@ function ns.UnitName(unit)
     return ns.GetFullName(UnitFullName(unit))
 end
 
-local summaryCache = {}
-function ns.GetTalentSpellSummary(spellId)
-    if summaryCache[spellId] == nil then
-        local TipScaner = ns.TipScaner
-        TipScaner:Clear()
-        TipScaner:SetSpellByID(spellId)
-
-        local n = TipScaner:NumLines()
-        local passive
-        for i = 1, n do
-            if TipScaner.L[i]:GetText() == SPELL_PASSIVE then
-                passive = true
-                break
-            end
-        end
-
-        if not passive then
-            summaryCache[spellId] = false
-        elseif n > 2 then
-            summaryCache[spellId] = TipScaner.L[n]:GetText()
-        end
-    end
-    return summaryCache[spellId]
-end
-
-function ns.IsTalentPassive(spellId)
-    return ns.GetTalentSpellSummary(spellId) == false
-end
-
-local function MatchBonus(text)
-    local count, summary = text:match(ITEM_SET_BONUS_GRAY_P)
-    if count then
-        return summary, tonumber(count)
-    end
-
-    return text:match(ITEM_SET_BONUS_P)
-end
-
-function ns.FixInspectItemTooltip()
-    local id = ns.ItemLinkToId(select(2, GameTooltip:GetItem()))
+function ns.FixInspectItemTooltip(tip)
+    local link = select(2, tip:GetItem())
+    local id = ns.ItemLinkToId(link)
     if not id then
         return
     end
 
-    local setId = CIS:GetItemSetForItemID(id)
-    if not setId then
-        return
-    end
+    tip = LibStub('LibTooltipExtra-1.0'):New(tip)
 
-    local setName = CIS:GetSetName(setId)
-    if not setName then
-        return
-    end
+    ns.FixItemSets(tip, id)
+    -- @non-classic@
+    ns.FixMetaGem(tip, link)
+    -- @end-non-classic@
 
-    local items = CIS:GetItems(setId)
-    if not items then
-        return
-    end
+    tip:Show()
+end
 
-    local itemNames = {}
-    local equippedCount = 0
-    local itemsCount = #items
-    local setNameLinePattern = '^(' .. setName .. '.+)(%d+)/(%d+)(.+)$'
-
-    for _, itemId in ipairs(items) do
-        if ns.Inspect:IsItemEquipped(itemId) then
-            local name = GetItemInfo(itemId)
-            if not name then
-                return
-            end
-            itemNames[name] = (itemNames[name] or 0) + 1
-            equippedCount = equippedCount + 1
+local function FillGem(out, ...)
+    for i = 1, select('#', ...) do
+        local itemId = tonumber((select(i, ...)))
+        if itemId then
+            tinsert(out, itemId)
         end
     end
+    return out
+end
 
-    local setLine
-    local firstBonusLine
-
-    for i = 2, GameTooltip:NumLines() do
-        local textLeft = _G['GameTooltipTextLeft' .. i]
-        local text = textLeft:GetText()
-
-        if not setLine then
-            local prefix, n, maxCount, suffix = text:match(setNameLinePattern)
-            if prefix then
-                setLine = i
-                textLeft:SetText(prefix .. equippedCount .. '/' .. maxCount .. suffix)
-            end
-        elseif i - setLine <= itemsCount + 1 then
-            local line = text:trim()
-            local n = itemNames[line]
-            if n and n > 0 then
-                textLeft:SetTextColor(1, 1, 0.6)
-                itemNames[line] = n > 1 and n - 1 or nil
-            else
-                textLeft:SetTextColor(0.5, 0.5, 0.5)
-            end
-        else
-            local summary, count = MatchBonus(text)
-            if summary then
-                if not firstBonusLine then
-                    firstBonusLine = i
-                end
-
-                if not count and firstBonusLine then
-                    count = ns.SetsBouns[id] and ns.SetsBouns[id][i - firstBonusLine + 1]
-                end
-
-                if count then
-                    if equippedCount >= count then
-                        textLeft:SetText(ITEM_SET_BONUS:format(summary))
-                        textLeft:SetTextColor(0.1, 1, 0.1)
-                    else
-                        textLeft:SetText(ITEM_SET_BONUS_GRAY:format(count, summary))
-                        textLeft:SetTextColor(0.5, 0.5, 0.5)
-                    end
-                end
-            end
-        end
-    end
-
-    GameTooltip:Show()
+local cache = {}
+function ns.GetItemGems(link, out)
+    return FillGem(out or wipe(cache), link:match('item:%d+:?[-%d]*:?(%d*):?(%d*):?(%d*):?(%d*)'))
+    -- out = out or wipe(cache)
+    -- for i = 1, 4 do
+    --     local _, gemLink = GetItemGem(link, i)
+    --     local gemId = gemLink and ns.ItemLinkToId(gemLink)
+    --     if gemId then
+    --         tinsert(out, gemId)
+    --     end
+    -- end
+    -- return out
 end

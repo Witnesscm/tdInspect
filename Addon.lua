@@ -2,34 +2,46 @@
 -- @Author : Dencer (tdaddon@163.com)
 -- @Link   : https://dengsir.github.io
 -- @Date   : 5/18/2020, 11:25:23 AM
-
----@type ns
+--
+---@class ns
+---@field Inspect Inspect
+---@field Talent Talent
+---@field Glyph Glyph
 local ns = select(2, ...)
 
-local _
-local pairs, ipairs = pairs, ipairs
-
-local GetSpellInfo = GetSpellInfo
-local ShowUIPanel = ShowUIPanel
+local ShowUIPanel = LibStub('LibShowUIPanel-1.0').ShowUIPanel
 
 ns.UI = {}
 ns.L = LibStub('AceLocale-3.0'):GetLocale('tdInspect')
 
----@type tdInspectAddon
+ns.VERSION = tonumber((GetAddOnMetadata('tdInspect', 'Version'):gsub('(%d+)%.?', function(x)
+    return format('%02d', tonumber(x))
+end))) or 0
+
+_G.BINDING_HEADER_TDINSPECT = 'tdInspect'
+_G.BINDING_NAME_TDINSPECT_VIEW_TARGET = ns.L['Inspect target']
+_G.BINDING_NAME_TDINSPECT_VIEW_MOUSEOVER = ns.L['Inspect mouseover']
+
+---@class Addon: AceAddon-3.0, LibClass-2.0, AceEvent-3.0
 local Addon = LibStub('AceAddon-3.0'):NewAddon('tdInspect', 'LibClass-2.0', 'AceEvent-3.0')
 ns.Addon = Addon
 
 function Addon:OnInitialize()
-    self.db = TDDB_INSPECT or {}
-    TDDB_INSPECT = self.db
-    self.db["ShowModel"] = self.db["ShowModel"] or false
+    ---@class tdInspectProfile
+    local profile = { --
+        global = { --
+            userCache = {},
+        },
+        profile = { --
+            showModel = true,
+        },
+    }
 
-    for class, tabs in pairs(ns.Talents) do
-        for _, tab in ipairs(tabs) do
-            for _, talent in ipairs(tab.talents) do
-                talent.name, _, talent.icon = GetSpellInfo(talent.ranks[1])
-            end
-        end
+    ---@type tdInspectProfile
+    self.db = LibStub('AceDB-3.0'):New('TDDB_INSPECT2', profile, true)
+
+    if not self.db.global.version or self.db.global.version < 20000 then
+        wipe(self.db.global.userCache)
     end
 end
 

@@ -1,4 +1,3 @@
-
 ---@type ns
 local ns = select(2, ...)
 
@@ -6,14 +5,13 @@ local min = min
 local max = max
 local huge = math.huge
 local rshift = bit.rshift
+local ripairs = ripairs or ipairs_reverse
 
-local GameTooltip = GameTooltip
-
----@type tdInspectTalentFrame
-local TalentFrame = ns.Addon:NewClass('UI.TalentFrame', 'ScrollFrame.UIPanelScrollFrameTemplate')
+---@class UI.TalentFrame: Object, ScrollFrame, AceEvent-3.0
+local TalentFrame = ns.Addon:NewClass('UI.TalentFrame', 'ScrollFrame')
 
 local MAX_TALENT_TABS = 3
-local MAX_NUM_TALENT_TIERS = 9
+local MAX_NUM_TALENT_TIERS = 15
 local NUM_TALENT_COLUMNS = 4
 local MAX_NUM_TALENTS = 40
 local PLAYER_TALENTS_PER_TIER = 5
@@ -41,6 +39,8 @@ local TALENT_ARROW_TEXTURECOORDS = {
     right = {[1] = {1.0, 0.5, 0, 0.5}, [-1] = {1.0, 0.5, 0.5, 1.0}},
     left = {[1] = {0.5, 1.0, 0, 0.5}, [-1] = {0.5, 1.0, 0.5, 1.0}},
 }
+
+local GameTooltip = LibStub('LibTooltipExtra-1.0').GameTooltip
 
 function TalentFrame:Constructor()
     self.tabIndex = 1
@@ -73,12 +73,25 @@ function TalentFrame:Constructor()
     BottomRight:SetPoint('TOPLEFT', TopLeft, 'BOTTOMRIGHT')
     BottomRight:SetTexCoord(0, 44 / 64, 0, 74 / 128)
 
-    local ScrollChild = CreateFrame("Frame", nil, self)
-    ScrollChild:SetSize(296, 353)
-    ScrollChild:SetPoint("TOPLEFT")
+    local ScrollChild = CreateFrame('Frame', nil, self)
+    ScrollChild:SetPoint('TOPLEFT')
+    ScrollChild:SetSize(1, 1)
     self:SetScrollChild(ScrollChild)
+    self.ScrollChild = ScrollChild
 
-    local ArrowParent = CreateFrame('Frame', nil, ScrollChild)
+    local t = self:CreateTexture(nil, 'OVERLAY')
+    t:SetSize(31, 256)
+    t:SetPoint('TOPLEFT', self, 'TOPRIGHT', -2, 5)
+    t:SetTexture([[Interface\PaperDollInfoFrame\UI-Character-ScrollBar]])
+    t:SetTexCoord(0, 0.484375, 0, 1)
+
+    t = self:CreateTexture(nil, 'OVERLAY')
+    t:SetSize(31, 106)
+    t:SetPoint('BOTTOMLEFT', self, 'BOTTOMRIGHT', -2, -2)
+    t:SetTexture([[Interface\PaperDollInfoFrame\UI-Character-ScrollBar]])
+    t:SetTexCoord(0.515625, 1, 0, 0.4140625)
+
+    local ArrowParent = CreateFrame('Frame', nil, self.ScrollChild)
     ArrowParent:SetAllPoints(true)
     ArrowParent:SetFrameLevel(ScrollChild:GetFrameLevel() + 100)
 
@@ -109,15 +122,25 @@ function TalentFrame:Constructor()
 end
 
 local function TalentOnEnter(button)
-    button.__owner:ShowTooltip(button)
+    button:GetParent():GetParent():ShowTooltip(button)
 end
 
-local function AddLine(line)
-    GameTooltip:AddLine(line, 1, 1, 1)
+local function TalentOnClick(button)
+    if button.link then
+        HandleModifiedItemClick(button.link)
+    end
+end
+
+local function AddLine(line, r, g, b)
+    GameTooltip:AddLine(line, r or 1, g or 1, b or 1)
 end
 
 local function AddSpellSummary(spellId)
-    GameTooltip:AddLine(ns.GetTalentSpellSummary(spellId), 1, 0.82, 0, true)
+    local description = GetSpellDescription(spellId)
+    if not description or description == '' then
+        GameTooltip:GetOwner().UpdateTooltip = TalentOnEnter
+    end
+    GameTooltip:AddLine(description, 1, 0.82, 0, true)
 end
 
 function TalentFrame:OnSizeChanged(width, height)
@@ -127,18 +150,54 @@ function TalentFrame:OnSizeChanged(width, height)
     self.BottomRight:SetSize(width * 44 / 300, height * 74 / 330)
 end
 
+local TOOLTIP_TALENT_RANK = HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(TOOLTIP_TALENT_RANK)
+local TOOLTIP_TALENT_PREREQ = RED_FONT_COLOR:WrapTextInColorCode(TOOLTIP_TALENT_PREREQ)
+local TOOLTIP_TALENT_TIER_POINTS = RED_FONT_COLOR:WrapTextInColorCode(TOOLTIP_TALENT_TIER_POINTS)
+
 function TalentFrame:ShowTooltip(button)
+    button.UpdateTooltip = nil
+
     local id = button:GetID()
     local name, _, row, _, rank, maxRank = self.talent:GetTalentInfo(self.tabIndex, id)
     local spellId = self.talent:GetTalentRankSpell(self.tabIndex, id, rank)
 
     GameTooltip:SetOwner(button, 'ANCHOR_RIGHT')
 
-    if ns.IsTalentPassive(spellId) then
+    local lines = {}
+    local prereqs = self.talent:GetTalentPrereqs(self.tabIndex, id)
+    if prereqs then
+        for _, req in ipairs(prereqs) do
+            local reqName, _, _, _, rank, reqMaxRank = self.talent:GetTalentInfo(self.tabIndex, req.reqIndex)
+            if reqName and rank < reqMaxRank then
+                tinsert(lines, format(TOOLTIP_TALENT_PREREQ, reqMaxRank, reqName))
+            end
+        end
+    end
+
+    if rank == 0 and row > 1 then
+        local pointsReq = (row - 1) * 5
+        local tabName, _, pointsSpent = self.talent:GetTabInfo(self.tabIndex)
+        if pointsSpent < pointsReq then
+            tinsert(lines, format(TOOLTIP_TALENT_TIER_POINTS, pointsReq, tabName))
+        end
+    end
+
+    if not IsPassiveSpell(spellId) then
         GameTooltip:SetSpellByID(spellId)
+
+        for _, line in ripairs(lines) do
+            GameTooltip:AppendLineFront(2, line)
+        end
+
+        GameTooltip:AppendLineFront(2, TOOLTIP_TALENT_RANK:format(rank, maxRank))
     else
         AddLine(name)
         AddLine(TOOLTIP_TALENT_RANK:format(rank, maxRank))
+
+        for _, req in ipairs(lines) do
+            AddLine(req, RED_FONT_COLOR:GetRGB())
+        end
+
         AddSpellSummary(spellId)
 
         if rank > 0 and rank < maxRank then
@@ -151,6 +210,30 @@ function TalentFrame:ShowTooltip(button)
     GameTooltip:Show()
 end
 
+-- function TalentFrame:ShowTooltip(button)
+--     if not button.link then
+--         return
+--     end
+--     GameTooltip:SetOwner(button, 'ANCHOR_RIGHT')
+--     GameTooltip:SetHyperlink(button.link)
+
+--     local id = button:GetID()
+--     local name, _, row, _, rank, maxRank = self.talent:GetTalentInfo(self.tabIndex, id)
+--     if rank == 0 and row > 1 then
+--         local pointsReq = (row - 1) * 5
+--         local tabName, _, pointsSpent = self.talent:GetTabInfo(self.tabIndex)
+
+--         if pointsSpent < pointsReq then
+--             local prereqs = self.talent:GetTalentPrereqs(self.tabIndex, id)
+--             local line = prereqs and 4 or 3
+
+--             GameTooltip:AppendLineFront(line, format(TOOLTIP_TALENT_TIER_POINTS, pointsReq, tabName))
+--         end
+--     end
+
+--     GameTooltip:Show()
+-- end
+
 function TalentFrame:GetTalentButton(i)
     if not self.buttons[i] then
         local button = CreateFrame('Button', nil, self.ScrollChild, 'ItemButtonTemplate')
@@ -159,6 +242,7 @@ function TalentFrame:GetTalentButton(i)
         button.__owner = self
         button:SetScript('OnEnter', TalentOnEnter)
         button:SetScript('OnLeave', GameTooltip_Hide)
+        button:SetScript('OnClick', TalentOnClick)
 
         local Slot = button:CreateTexture(nil, 'BACKGROUND')
         Slot:SetSize(64, 64)
@@ -176,7 +260,6 @@ function TalentFrame:GetTalentButton(i)
         button.Slot = Slot
         button.RankBorder = RankBorder
         button.Rank = Rank
-        button.UpdateTooltip = TalentOnEnter
 
         self.buttons[i] = button
     end
@@ -236,6 +319,7 @@ function TalentFrame:Update()
             -- Set the button info
             local name, iconTexture, tier, column, rank, maxRank = self.talent:GetTalentInfo(self.tabIndex, i)
             if name and tier <= MAX_NUM_TALENT_TIERS then
+                button.link = self.talent:GetTalentLink(self.tabIndex, i)
                 button.Rank:SetText(rank)
                 self:SetButtonLocation(button, tier, column, talentButtonSize, initialOffsetX, initialOffsetY,
                                        buttonSpacingX, buttonSpacingY)
@@ -617,7 +701,14 @@ function TalentFrame:SetTalentTab(tabIndex)
     self:Refresh()
 end
 
-function TalentFrame:SetTalent(class, data)
-    self.talent = ns.Talent:New(class, data)
+function TalentFrame:SetTalent(talent)
+    self.talent = talent
     self:Refresh()
+end
+
+function TalentFrame:SetActive(active)
+    self.TopLeft:SetDesaturated(not active)
+    self.TopRight:SetDesaturated(not active)
+    self.BottomLeft:SetDesaturated(not active)
+    self.BottomRight:SetDesaturated(not active)
 end

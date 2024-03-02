@@ -2,7 +2,7 @@
 -- @Author : Dencer (tdaddon@163.com)
 -- @Link   : https://dengsir.github.io
 -- @Date   : 5/18/2020, 1:22:16 PM
-
+--
 ---@type ns
 local ns = select(2, ...)
 
@@ -20,7 +20,7 @@ local PLAYER_LEVEL = PLAYER_LEVEL
 local L = ns.L
 local Inspect = ns.Inspect
 
----@type tdInspectPaperDoll
+---@class UI.PaperDoll: Object, Frame, AceEvent-3.0
 local PaperDoll = ns.Addon:NewClass('UI.PaperDoll', 'Frame')
 
 function PaperDoll:Constructor()
@@ -29,7 +29,7 @@ function PaperDoll:Constructor()
 
     self.buttons = {}
 
-    for _, button in ipairs{
+    for _, button in ipairs {
         InspectHeadSlot, InspectNeckSlot, InspectShoulderSlot, InspectBackSlot, InspectChestSlot, InspectShirtSlot,
         InspectTabardSlot, InspectWristSlot, InspectHandsSlot, InspectWaistSlot, InspectLegsSlot, InspectFeetSlot,
         InspectFinger0Slot, InspectFinger1Slot, InspectTrinket0Slot, InspectTrinket1Slot, InspectMainHandSlot,
@@ -73,12 +73,12 @@ function PaperDoll:Constructor()
         ToggleButton:GetFontString():SetPoint('LEFT', ToggleButton, 'RIGHT', 0, 0)
         ToggleButton:SetNormalFontObject('GameFontNormalSmall')
         ToggleButton:SetHighlightFontObject('GameFontHighlightSmall')
-        ToggleButton:SetText(L['Show Modal'])
-        ToggleButton:SetChecked(ns.Addon.db["ShowModel"])
+        ToggleButton:SetText(L['Show Model'])
 
-        ToggleButton:SetScript('OnClick', function()
-            ns.Addon.db["ShowModel"] = not ns.Addon.db["ShowModel"]
-            return self:UpdateInset()
+        ToggleButton:SetScript('OnClick', function(ToggleButton)
+            ns.Addon.db.profile.showModel = not not ToggleButton:GetChecked()
+
+            self:UpdateInset()
         end)
     end
 
@@ -99,7 +99,7 @@ function PaperDoll:Constructor()
     self.LastUpdate = LastUpdate
     self.ToggleButton = ToggleButton
     self.LevelText = InspectLevelText
-    self.ModalFrame = ns.UI.ModalFrame:Bind(self:CreateInsetFrame())
+    self.ModelFrame = ns.UI.ModelFrame:Bind(self:CreateInsetFrame())
     self.EquipFrame = ns.UI.EquipFrame:Bind(self:CreateInsetFrame())
 
     self:UpdateInset()
@@ -110,6 +110,8 @@ end
 function PaperDoll:OnShow()
     self:RegisterMessage('INSPECT_READY', 'Update')
     self:RegisterEvent('UNIT_LEVEL', 'UpdateInfo')
+    self:UpdateControls()
+    self:UpdateInset()
     self:UpdateInfo()
     self:Update()
 end
@@ -124,6 +126,10 @@ function PaperDoll:CreateInsetFrame()
     frame:SetPoint('TOPLEFT', 65, -76)
     frame:SetPoint('BOTTOMRIGHT', -85, 115)
     return frame
+end
+
+function PaperDoll:UpdateControls()
+    self.ToggleButton:SetChecked(ns.Addon.db.profile.showModel)
 end
 
 function PaperDoll:Update()
@@ -141,10 +147,13 @@ function PaperDoll:UpdateInfo()
     local lastUpdate = Inspect:GetLastUpdate()
 
     self.LevelText:SetFormattedText(PLAYER_LEVEL, level or '??', race or '',
-                                    ns.strcolor(class, GetClassColor(classFileName)))
+                                    class and ns.strcolor(class, GetClassColor(classFileName)) or '')
 
     if raceFileName then
-        self.RaceBackground:SetAtlas('transmog-background-race-' .. raceFileName:lower())
+        if raceFileName == 'Scourge' then
+            raceFileName = 'Undead'
+        end
+        self.RaceBackground:SetAtlas('transmog-background-race-' .. raceFileName)
     else
         self.RaceBackground:SetAtlas(UnitFactionGroup('player') == 'Alliance' and 'transmog-background-race-draenei' or
                                          'transmog-background-race-bloodelf')
@@ -158,7 +167,7 @@ function PaperDoll:UpdateInfo()
 end
 
 function PaperDoll:UpdateInset()
-    local checked = self.ToggleButton:GetChecked()
-    self.ModalFrame:SetShown(checked)
+    local checked = ns.Addon.db.profile.showModel
+    self.ModelFrame:SetShown(checked)
     self.EquipFrame:SetShown(not checked)
 end
