@@ -1,7 +1,7 @@
 ## Interface: 11501
 ## Title: tdInspect
 ## Author: Dencer
-## Version: 2.1.4
+## Version: @project-version@
 ## SavedVariables: TDDB_INSPECT2
 
 Load.xml
