@@ -319,6 +319,15 @@ function Inspect:Query(unit, name)
         self:SendCommMessage(ALA_PREFIX, ns.Ala:PackQuery(queryEquip, queryTalent, queryGlyph), 'WHISPER', self.unitName)
     end
 
+    -- 暂时保留ala v1请求用于查询大脚插件用户
+    if queryTalent then
+        self:SendCommMessage(ALA_PREFIX, '_q_tal', 'WHISPER', self.unitName)
+    end
+
+    if queryEquip then
+        self:SendCommMessage(ALA_PREFIX, '_q_equ', 'WHISPER', self.unitName)
+    end
+
     self:CheckQuery()
 end
 
