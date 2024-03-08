@@ -51,7 +51,7 @@ class App {
 
     async getTalentTabNames(locale: string) {
         const csv = await this.cli.fetchTable('TalentTab', locale);
-        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name.replace(/"/g, '')]));
+        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name.replace(/^"|"$/g, '')]));
     }
 
     async getTalentTabs() {
