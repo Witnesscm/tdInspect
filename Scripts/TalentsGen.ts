@@ -41,7 +41,7 @@ class App {
     }
 
     async getClasses() {
-        const csv = await this.cli.fetchTable('chrclasses');
+        const csv = await this.cli.fetchTable('ChrClasses');
         return csv.map((x) => ({
             id: Number.parseInt(x[5]),
             fileName: x[1],
@@ -50,12 +50,12 @@ class App {
     }
 
     async getTalentTabNames(locale: string) {
-        const csv = await this.cli.fetchTable('talenttab', locale);
-        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name]));
+        const csv = await this.cli.fetchTable('TalentTab', locale);
+        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name.replace(/"/g, '')]));
     }
 
     async getTalentTabs() {
-        const csv = await this.cli.fetchTable('talenttab');
+        const csv = await this.cli.fetchTable('TalentTab');
         const names = new Map(
             await Promise.all(
                 LOCALES.map(
@@ -75,7 +75,7 @@ class App {
     }
 
     async getTalents() {
-        const csv = await this.cli.fetchTable('talent');
+        const csv = await this.cli.fetchTable('Talent');
 
         return csv
             .map((x) => ({

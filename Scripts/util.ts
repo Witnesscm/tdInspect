@@ -16,11 +16,11 @@ interface ProjectData {
     dataEnv: number;
 }
 
-// https://wago.tools/db2/ItemSet/csv?build=1.15.1.53495
+// https://wago.tools/db2/ItemSet/csv?build=1.15.1.53623&locale=zhCN
 const WOW_TOOLS = 'https://wago.tools/db2/{name}/csv';
 
 const PROJECTS = new Map([
-    [ProjectId.Classic, { version: '1.15.1.53495', dataEnv: 4 }],
+    [ProjectId.Classic, { version: '1.15.1.53623', dataEnv: 4 }],
     [ProjectId.BCC, { version: '2.5.4.44833', dataEnv: 5 }],
     [ProjectId.WLK, { version: '3.4.0.45770', dataEnv: 8 }],
 ]);
@@ -44,11 +44,11 @@ export class WowToolsClient {
         return rows.map((x) => x.split(','));
     }
 
-    async fetchTable(name: string) {
+    async fetchTable(name: string, locale = 'enUS') {
         const url = new URL(WOW_TOOLS.replace('{name}', name));
         // url.searchParams.append('name', name);
         url.searchParams.append('build', this.pro.version);
-        // url.searchParams.append('locale', locale);
+        url.searchParams.append('locale', locale);
 
         const resp = await fetch(url);
         const body = await resp.text();
