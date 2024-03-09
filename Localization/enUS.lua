@@ -6,7 +6,7 @@ end
 L["Inspect mouseover"] = true
 L["Inspect target"] = true
 L["Last update:"] = true
-L["Show Modal"] = true
+L["Show Model"] = true
 
 
 --[=[@debug@

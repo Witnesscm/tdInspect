@@ -1,4 +1,4 @@
--- Modal.lua
+-- Model.lua
 -- @Author : Dencer (tdaddon@163.com)
 -- @Link   : https://dengsir.github.io
 -- @Date   : 5/18/2020, 1:04:14 AM
@@ -20,12 +20,12 @@ local factionLogoTextures = {
 local ModelFrame = ns.Addon:NewClass('UI.ModelFrame', 'Frame')
 
 function ModelFrame:Constructor()
-    self.Modal = InspectModelFrame
+    self.Model = InspectModelFrame
     self.Faction = InspectFaction
 
     self.Faction:SetPoint('CENTER', InspectPaperDollFrame, 'CENTER', -10, 20)
 
-    self.Modal:SetParent(self)
+    self.Model:SetParent(self)
     self.Faction:SetParent(self)
 
     self:Hide()
@@ -47,11 +47,11 @@ end
 function ModelFrame:Update()
     local unit = Inspect.unit
     if unit then
-        self.Modal:Show()
+        self.Model:Show()
 
-        if self.Modal:SetUnit(unit) then
+        if self.Model:SetUnit(unit) then
             self.modelName = ns.UnitName(unit)
-            self.Modal:Show()
+            self.Model:Show()
             self.Faction:Hide()
             return
         end
@@ -62,7 +62,7 @@ function ModelFrame:Update()
     end
 
     self.modelName = nil
-    self.Modal:Hide()
+    self.Model:Hide()
     self.Faction:SetTexture(factionLogoTextures[UnitFactionGroup(unit or 'player')])
     self.Faction:Show()
 end

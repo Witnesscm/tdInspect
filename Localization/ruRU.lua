@@ -9,5 +9,5 @@ if not L then return end
 --[[Translation missing --]]
 --[[ L["Last update:"] = ""--]] 
 --[[Translation missing --]]
---[[ L["Show Modal"] = ""--]] 
+--[[ L["Show Model"] = ""--]] 
 
