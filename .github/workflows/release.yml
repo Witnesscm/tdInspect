@@ -1,13 +1,12 @@
-name: Package and build release versions
+name: Package and release
 
 on:
   push:
     tags:
       - '**'
 
-
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
 
     env:
@@ -15,7 +14,7 @@ jobs:
 
     steps:
       - name: Clone project
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
         with:
           fetch-depth: 50
 
