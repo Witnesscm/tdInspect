@@ -20,7 +20,7 @@ interface ProjectData {
 const WOW_TOOLS = 'https://wago.tools/db2/{name}/csv';
 
 const PROJECTS = new Map([
-    [ProjectId.Classic, { version: '1.15.1.53623', dataEnv: 4 }],
+    [ProjectId.Classic, { version: '1.15.2.54092', dataEnv: 4 }],
     [ProjectId.BCC, { version: '2.5.4.44833', dataEnv: 5 }],
     [ProjectId.WLK, { version: '3.4.0.45770', dataEnv: 8 }],
 ]);
