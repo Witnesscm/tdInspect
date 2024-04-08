@@ -36,6 +36,8 @@ local PROTO_VERSION = 2
 local Serializer = LibStub('AceSerializer-3.0')
 local Encoder = ns.Encoder
 
+local C_Engraving = C_Engraving
+
 ---@class Inspect: AceAddon-3.0, AceEvent-3.0, AceComm-3.0
 local Inspect = ns.Addon:NewModule('Inspect', 'AceEvent-3.0', 'AceComm-3.0')
 
@@ -141,6 +143,15 @@ function Inspect:GetItemLink(slot)
         link = self.db.equips[slot]
     end
     return link
+end
+
+function Inspect:GetItemRune(slot)
+    if not self.db.runes then
+        return
+    end
+    if self.db.runes[slot] then
+        return self.db.runes[slot]
+    end
 end
 
 function Inspect:IsItemEquipped(itemId)
@@ -250,10 +261,6 @@ function Inspect:GetUnitGlyph(group)
     return self.glyphs[group or self:GetActiveTalentGroup()]
 end
 
-function Inspect:GetRuneForEquipmentSlot(slot)
-    return self.db.engravings and self.db.engravings[slot]
-end
-
 function Inspect:GetLastUpdate()
     return self.db.timestamp
 end
@@ -305,6 +312,7 @@ function Inspect:Query(unit, name)
     local queryTalent = true
     local queryEquip = false
     local queryGlyph = false
+    local queryRune = C_Engraving.IsEngravingEnabled()
 
     if self:CanBlizzardInspect(unit) then
         NotifyInspect(unit)
@@ -312,20 +320,21 @@ function Inspect:Query(unit, name)
         queryEquip = true
     end
 
-    if queryEquip or queryTalent or queryGlyph then
-        self:SendCommMessage(PROTO_PREFIX,
-                             Serializer:Serialize('Q', queryTalent, queryEquip, PROTO_VERSION, queryGlyph), 'WHISPER',
+    if queryEquip or queryTalent or queryGlyph or queryRune then
+        if queryTalent then
+            self:SendCommMessage(ALA_PREFIX, '_q_tal', 'WHISPER', self.unitName)
+        end
+
+        if queryEquip then
+            self:SendCommMessage(ALA_PREFIX, '_q_equ', 'WHISPER', self.unitName)
+        end
+
+        self:SendCommMessage(ALA_PREFIX, ns.Ala:PackQuery(queryEquip, queryTalent, queryGlyph, queryRune), 'WHISPER',
                              self.unitName)
-        self:SendCommMessage(ALA_PREFIX, ns.Ala:PackQuery(queryEquip, queryTalent, queryGlyph), 'WHISPER', self.unitName)
-    end
 
-    -- 暂时保留ala v1请求用于查询大脚插件用户
-    if queryTalent then
-        self:SendCommMessage(ALA_PREFIX, '_q_tal', 'WHISPER', self.unitName)
-    end
-
-    if queryEquip then
-        self:SendCommMessage(ALA_PREFIX, '_q_equ', 'WHISPER', self.unitName)
+        self:SendCommMessage(PROTO_PREFIX,
+                             Serializer:Serialize('Q', queryTalent, queryEquip, PROTO_VERSION, queryGlyph, queryRune),
+                             'WHISPER', self.unitName)
     end
 
     self:CheckQuery()
@@ -378,8 +387,8 @@ function Inspect:INSPECT_READY(_, guid)
         db.race = select(3, UnitRace(self.unit))
         db.level = UnitLevel(self.unit)
         db.talents = Encoder:PackTalents(true)
-        db.numGroups = 1
-        db.activeGroup = 1
+        db.numGroups = GetNumTalentGroups(true)
+        db.activeGroup = GetActiveTalentGroup(true)
 
         self:TryFireMessage(self.unit, name, db)
     end
@@ -411,8 +420,8 @@ function Inspect:UpdateCharacter(sender, data)
     if data.glyphs then
         db.glyphs = data.glyphs
     end
-    if data.engravings then
-        db.engravings = data.engravings
+    if data.runes then
+        db.runes = data.runes
     end
 
     self:TryFireMessage(nil, name, db)
@@ -420,9 +429,9 @@ end
 
 function Inspect:OnComm(cmd, sender, ...)
     if cmd == 'Q' then
-        local queryTalent, queryEquip, protoVersion, queryGlyph = ...
+        local queryTalent, queryEquip, protoVersion, queryGlyph, queryRune = ...
         if not protoVersion or protoVersion == 1 then
-            local talent = queryTalent and Encoder:PackTalent(nil, 1, true) or nil
+            local talent = queryTalent and Encoder:PackTalent(nil, GetActiveTalentGroup(), true) or nil
             local equips = queryEquip and Encoder:PackEquips(true) or nil
             local class = select(3, UnitClass('player'))
             local race = select(3, UnitRace('player'))
@@ -436,16 +445,15 @@ function Inspect:OnComm(cmd, sender, ...)
             local equips = queryEquip and Encoder:PackEquips() or nil
             local talents = queryTalent and Encoder:PackTalents() or nil
             local glyphs = queryGlyph and Encoder:PackGlyphs() or nil
-            local engravings = C_Engraving and C_Engraving.IsEngravingEnabled() and Encoder:PackEngravings() or nil
+            local runes = queryRune and Encoder:PackRunes() or nil
             local class = select(3, UnitClass('player'))
             local race = select(3, UnitRace('player'))
             local level = UnitLevel('player')
             local msg = Serializer:Serialize('R2', protoVersion, class, race, level, equips, numGroups, activeGroup,
-                                             talents, glyphs, engravings)
+                                             talents, glyphs, runes)
 
             self:SendCommMessage(PROTO_PREFIX, msg, 'WHISPER', sender)
         end
-
     elseif cmd == 'R' then
         local class, race, level, talent, equips = ...
 
@@ -478,7 +486,7 @@ function Inspect:OnComm(cmd, sender, ...)
 
         self:TryFireMessage(nil, name, db)
     elseif cmd == 'R2' then
-        local protoVersion, class, race, level, equips, numGroups, activeGroup, talents, glyphs, engravings = ...
+        local protoVersion, class, race, level, equips, numGroups, activeGroup, talents, glyphs, runes = ...
         local name = ns.GetFullName(sender)
         local db = self:BuildCharacterDb(name)
 
@@ -503,8 +511,8 @@ function Inspect:OnComm(cmd, sender, ...)
             db.glyphs = Encoder:UnpackGlyphs(glyphs)
         end
 
-        if engravings then
-            db.engravings = Encoder:UnpackEngravings(engravings)
+        if runes then
+            db.runes = Encoder:UnpackRunes(runes)
         end
 
         self:TryFireMessage(nil, name, db)

@@ -13,7 +13,6 @@ local strsub = string.sub
 local Ala = {}
 ns.Ala = Ala
 
-
 local __base64, __debase64 = {}, {}
 do
     for i = 0, 9 do
@@ -207,21 +206,6 @@ function Ala:DecodeGlyph(code)
     end
 end
 
-function Ala:DecodeEngraving(code)
-    local data = {}
-    local val = { strsplit('+', code) }
-    for i = 1, #val do
-        local slot, id, icon = strsplit(':', val[i])
-        slot = slot and __debase64[slot] or nil
-        id = id and DecodeNumber(id) or nil
-        icon = icon and DecodeNumber(icon) or nil
-        if slot ~= nil and id ~= nil then
-            data[slot] = { id, icon or select(3, GetSpellInfo(id)) or nil}
-        end
-    end
-    return data
-end
-
 function Ala:RecvEquipmentV1(code)
     local c = strsplit('#', code)
     local equips = self:DecodeEquipmentV1(c)
@@ -265,15 +249,15 @@ end
 local _RecvBuffer = {}
 
 function Ala:RecvPacket(msg, sender)
-    local num = __debase64[strsub(msg, 5, 5)] + __debase64[strsub(msg, 6, 6)] * 64;
-    local index = __debase64[strsub(msg, 7, 7)] + __debase64[strsub(msg, 8, 8)] * 64;
+    local num = __debase64[strsub(msg, 5, 5)] + __debase64[strsub(msg, 6, 6)] * 64
+    local index = __debase64[strsub(msg, 7, 7)] + __debase64[strsub(msg, 8, 8)] * 64
     local buffer = _RecvBuffer[sender] or {}
     _RecvBuffer[sender] = buffer
-    -- Buffer[receiver] = Buffer[receiver] or {};
-    -- Buffer = Buffer[receiver];
-    -- buffer[sender] = buffer[sender] or {};
-    -- buffer = buffer[sender];
-    buffer[index] = strsub(msg, 9);
+    -- Buffer[receiver] = Buffer[receiver] or {}
+    -- Buffer = Buffer[receiver]
+    -- buffer[sender] = buffer[sender] or {}
+    -- buffer = buffer[sender]
+    buffer[index] = strsub(msg, 9)
     for i = 1, num do
         if not buffer[i] then
             return
@@ -424,23 +408,27 @@ function Ala:RecvEquipmentV2(code)
     end
 end
 
-function Ala:RecvEngravingV2Step2(code)
-    local engravings = self:DecodeEngraving(code)
-    if not engravings then
-        return
-    end
-    return {engravings = engravings}
-end
-
-function Ala:RecvEngravingV2(code)
+function Ala:RecvRune(code)
     if strsub(code, 1, 2) ~= '!N' then
-        return
+        return false
     end
     local clientMajor = __debase64[strsub(code, 3, 3)]
     if clientMajor ~= CLIENT_MAJOR then
         return
     end
-    return self:RecvEngravingV2Step2(strsub(code, 5))
+
+    local runes = {}
+    local val = strsplittable('+', strsub(code, 5))
+    for i = 1, #val do
+        local slot, id, icon = strsplit(':', val[i])
+        slot = slot and __debase64[slot] or nil
+        id = id and DecodeNumber(id) or nil
+        icon = icon and DecodeNumber(icon) or nil
+        if slot ~= nil and id ~= nil then
+            runes[slot] = {slot = slot, spellId = id, icon = icon}
+        end
+    end
+    return {runes = runes}
 end
 
 local function merge(dst, src)
@@ -476,7 +464,7 @@ function Ala:RecvCommV2(msg, sender)
         elseif v2_ctrl_code == '!E' then
             r = merge(r, self:RecvEquipmentV2(code))
         elseif v2_ctrl_code == '!N' then
-            r = merge(r, self:RecvEngravingV2(code))
+            r = merge(r, self:RecvRune(code))
         end
     end
     return r
@@ -494,6 +482,7 @@ function Ala:RecvComm(msg, channel, sender)
     end
 end
 
-function Ala:PackQuery(queryEquip, queryTalent, queryGlyph)
-    return COMM_QUERY_PREFIX .. (queryTalent and 'T' or '') .. (queryGlyph and 'G' or '') .. (queryEquip and 'E' or '')
+function Ala:PackQuery(queryEquip, queryTalent, queryGlyph, queryRune)
+    return COMM_QUERY_PREFIX .. (queryTalent and 'T' or '') .. (queryGlyph and 'G' or '') ..
+               ((queryEquip or queryRune) and 'E' or '')
 end

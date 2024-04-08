@@ -140,4 +140,10 @@ function InspectTalent:UpdateInfo()
 
     self.Summary:SetText(table.concat(summaries, '  '))
     self.TalentFrame:SetTalent(talent)
+    self.TalentFrame:SetActive(self.groupId == activeGroup)
+end
+
+function InspectTalent:SetTalentGroup(id)
+    self.groupId = id
+    self:UpdateInfo()
 end

@@ -69,7 +69,7 @@ end
 function Talent:GetTabInfo(tab)
     local tabData = self.data[tab]
     if tabData then
-        return tabData.name, tabData.bg, self.talents[tab].pointsSpent
+        return tabData.name, tabData.bg, self.talents[tab].pointsSpent, tabData.icon
     end
 end
 

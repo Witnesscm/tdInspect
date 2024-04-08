@@ -6,6 +6,8 @@
 ---@class ns
 local ns = select(2, ...)
 
+local C_Engraving = C_Engraving
+
 local band, rshift, lshift = bit.band, bit.rshift, bit.lshift
 local tconcat, tinsert = table.concat, table.insert
 local strsub, strbyte, strchar, strrep = string.sub, string.byte, string.char, string.rep
@@ -24,12 +26,12 @@ local MAJOR_SEP = '!'
 local MINOR_SEP = LINK_SEP
 
 function Encoder:EncodeInteger(v)
-    local s = {}
-    local n
     v = tonumber(v)
     if not v then
         return
     end
+    local s = {}
+    local n
     if v < 0 then
         s[1] = NEG
         v = -v
@@ -43,7 +45,7 @@ function Encoder:EncodeInteger(v)
 end
 
 function Encoder:DecodeInteger(code)
-    if code == '' then
+    if not code or code == '' then
         return
     end
     local isNeg = strsub(code, 1, 1) == NEG
@@ -152,6 +154,51 @@ function Encoder:UnpackGlyphs(code)
     return data
 end
 
+function Encoder:PackRune(i, info)
+    local spellId = info.learnedAbilitySpellIDs[info.level]
+    local icon = info.iconTexture
+    if icon == select(3, GetSpellInfo(spellId)) then
+        icon = nil
+    end
+    return table.concat({
+        self:EncodeInteger(i), --
+        self:EncodeInteger(spellId), --
+        self:EncodeInteger(icon), --
+    }, MINOR_SEP)
+end
+
+function Encoder:PackRunes()
+    if C_Engraving.IsEngravingEnabled() then
+        local data = {}
+        for i = 1, 18 do
+            local info = C_Engraving.IsEquipmentSlotEngravable(i) and C_Engraving.GetRuneForEquipmentSlot(i)
+            if info then
+                tinsert(data, self:PackRune(i, info))
+            end
+        end
+        return tconcat(data, MAJOR_SEP)
+    end
+end
+
+function Encoder:UnpackRune(code)
+    local slot, spellId, icon = strsplit(MINOR_SEP, code)
+    return { --
+        slot = self:DecodeInteger(slot),
+        spellId = self:DecodeInteger(spellId),
+        icon = self:DecodeInteger(icon),
+    }
+end
+
+function Encoder:UnpackRunes(code)
+    local data = strsplittable(MAJOR_SEP, code)
+    local runes = {}
+    for i, v in ipairs(data) do
+        local info = self:UnpackRune(v)
+        runes[info.slot] = info
+    end
+    return runes
+end
+
 local encodeTalent, decodeTalent
 do
     local function talentchar(n)
@@ -224,7 +271,6 @@ function Encoder:DecodeTalent(code)
     return (code:gsub('.', decodeTalent))
 end
 
--- @build>3@
 local function compare(a, b)
     if a.tab ~= b.tab then
         return a.tab < b.tab
@@ -234,7 +280,6 @@ local function compare(a, b)
     end
     return a.column < b.column
 end
--- @end-build>3@
 
 function Encoder:PackTalent(isInspect, group, noEncode)
     local data = {}
@@ -267,7 +312,7 @@ end
 
 function Encoder:PackTalents(isInspect)
     local data = {}
-    local numGroups = 1
+    local numGroups = GetNumTalentGroups(isInspect)
     for i = 1, numGroups do
         data[i] = self:PackTalent(isInspect, i, isInspect)
     end
@@ -290,44 +335,6 @@ function Encoder:UnpackTalents(code)
     local data = strsplittable(MAJOR_SEP, code)
     for i, v in ipairs(data) do
         data[i] = self:UnpackTalent(v)
-    end
-    return data
-end
-
-function Encoder:PackEngraving(slot)
-    if C_Engraving.IsEquipmentSlotEngravable(slot) then
-        local info = C_Engraving.GetRuneForEquipmentSlot(slot)
-        local spellId = info and info.learnedAbilitySpellIDs and info.learnedAbilitySpellIDs[info.level]
-        local icon = info and info.iconTexture or ''
-        if spellId then
-            return tconcat({Encoder:EncodeInteger(spellId), Encoder:EncodeInteger(icon)}, MINOR_SEP)
-        end
-    end
-end
-
-function Encoder:PackEngravings()
-    local data = {}
-    for i = 1, 18 do
-        data[i] = Encoder:PackEngraving(i) or ''
-    end
-    return tconcat(data, MAJOR_SEP)
-end
-
-function Encoder:UnpackEngraving(code)
-    if code == '' then
-        return
-    end
-    local data = strsplittable(MINOR_SEP, code)
-    for i, v in ipairs(data) do
-        data[i] = self:DecodeInteger(v)
-    end
-    return data
-end
-
-function Encoder:UnpackEngravings(code)
-    local data = strsplittable(MAJOR_SEP, code)
-    for i, v in ipairs(data) do
-        data[i] = self:UnpackEngraving(v)
     end
     return data
 end

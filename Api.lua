@@ -85,9 +85,8 @@ function ns.UnitName(unit)
     return ns.GetFullName(UnitFullName(unit))
 end
 
-function ns.FixInspectItemTooltip(tip)
-    local link = select(2, tip:GetItem())
-    local id = ns.ItemLinkToId(link)
+function ns.FixInspectItemTooltip(tip, slot, item)
+    local id = ns.ItemLinkToId(item)
     if not id then
         return
     end
@@ -95,6 +94,7 @@ function ns.FixInspectItemTooltip(tip)
     tip = LibStub('LibTooltipExtra-1.0'):New(tip)
 
     ns.FixItemSets(tip, id)
+    ns.FixRune(tip, slot, id)
 
     tip:Show()
 end
