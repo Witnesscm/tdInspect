@@ -113,3 +113,8 @@ local cache = {}
 function ns.GetItemGems(link, out)
     return FillGem(out or wipe(cache), link:match('item:%d+:?[-%d]*:?(%d*):?(%d*):?(%d*):?(%d*)'))
 end
+
+function ns.ResolveTalent(class, data)
+    local talent = ns.Talent:New(class, data)
+    return talent:ToString()
+end

@@ -13,7 +13,7 @@ interface Config {
 }
 
 const PROJECTS: { [key: number]: Config } = {
-    [ProjectId.Classic]: { hasId: true, hasIcon: true },
+    [ProjectId.Classic]: { hasId: false, hasIcon: true },
     [ProjectId.BCC]: { hasId: true, hasIcon: false },
     [ProjectId.WLK]: { hasId: true, hasIcon: true },
 };
@@ -50,12 +50,12 @@ class App {
     }
 
     async getTalentTabNames(locale: string) {
-        const csv = await this.cli.fetchTable('TalentTab', locale);
-        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name.replace(/^"|"$/g, '')]));
+        const csv = await this.cli.fetchTable('talenttab', locale);
+        return new Map(csv.map(([id, name]) => [Number.parseInt(id), name]));
     }
 
     async getTalentTabs() {
-        const csv = await this.cli.fetchTable('TalentTab');
+        const csv = await this.cli.fetchTable('talenttab');
         const names = new Map(
             await Promise.all(
                 LOCALES.map(
@@ -75,7 +75,7 @@ class App {
     }
 
     async getTalents() {
-        const csv = await this.cli.fetchTable('Talent');
+        const csv = await this.cli.fetchTable('talent');
 
         return csv.map((x, i) => ({
             index: i,
@@ -92,15 +92,6 @@ class App {
                 .map((x) => Number.parseInt(x))
                 .filter((x) => x),
         }));
-        // .sort((a, b) => {
-        //     if (a.tabId !== b.tabId) {
-        //         return a.tabId - b.tabId;
-        //     }
-        //     if (a.tier !== b.tier) {
-        //         return a.tier - b.tier;
-        //     }
-        //     return a.col - b.col;
-        // });
     }
 
     async run(output: string) {
@@ -112,17 +103,18 @@ class App {
 
         for (const cls of classes) {
             let n = 0;
-            for (const tab of tabs) {
+
+            const classTabs = tabs.filter((tab) => tab.classMask === cls.classMask).sort((a, b) => a.order - b.order);
+
+            for (const tab of classTabs) {
                 if (tab.classMask === cls.classMask) {
+                    console.log(tab);
                     const tabTalents = talents.filter((talent) => talent.tabId === tab.id);
 
                     tabTalents.forEach((x, i) => (x.index = i + 1 + n));
                     n = tabTalents.length;
                 }
             }
-            // const tabsSet = new Set(tabs.filter((tab) => tab.classMask == cls.classMask).map((tab) => tab.id));
-            // const clsTalents = talents.filter((talent) => tabsSet.has(talent.tabId)); //.sort((a, b) => a.id - b.id);
-            // clsTalents.forEach((talent, i) => (talent.index = i + 1 + n));
         }
 
         const classTabs = classes.map((cls) => ({
@@ -159,11 +151,12 @@ select(2,...).TalentMake()`
         );
 
         write(`D'${LOCALES.map(([, l]) => l).join('/')}'`);
+        write('\n');
 
         for (const cls of classTabs) {
             console.log(`For ${cls.fileName}`);
 
-            write(`C'${cls.fileName}'`);
+            write(`C'${cls.fileName}'\n`);
 
             for (const tab of cls.tabs) {
                 {
@@ -196,6 +189,7 @@ select(2,...).TalentMake()`
                             }
                         }
                     }
+                    write('\n');
                 }
             }
         }

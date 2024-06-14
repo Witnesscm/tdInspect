@@ -43,6 +43,14 @@ function Addon:OnInitialize()
     if not self.db.global.version or self.db.global.version < 20000 then
         wipe(self.db.global.userCache)
     end
+
+    for k, v in pairs(self.db.global.userCache) do
+        if not v.class then
+            self.db.global.userCache[k] = nil
+        end
+    end
+
+    self.db.global.version = ns.VERSION
 end
 
 function Addon:OnEnable()
@@ -86,3 +94,5 @@ function Addon:INSPECT_READY(_, unit, name)
         ShowUIPanel(self.InspectFrame)
     end
 end
+
+tdInspect = ns

@@ -15,7 +15,7 @@ class App {
     }
 
     async getItemSetSpells() {
-        const csv = await this.cli.fetchTable('ItemSetSpell');
+        const csv = await this.cli.fetchTable('itemsetspell');
         return csv.map((x) => ({
             setId: Number.parseInt(x[4]),
             threshold: Number.parseInt(x[3]),
@@ -23,7 +23,7 @@ class App {
     }
 
     async getItemSets() {
-        const csv = await this.cli.fetchTable('ItemSet');
+        const csv = await this.cli.fetchTable('itemset');
         return csv
             .map((x) => ({
                 id: Number.parseInt(x[0]),
@@ -38,7 +38,7 @@ class App {
     }
 
     async getItemSlots() {
-        const csv = await this.cli.fetchTable('Item');
+        const csv = await this.cli.fetchTable('item');
         return new Map(csv.map((x) => [Number.parseInt(x[0]), Number.parseInt(x[4])]));
     }
 
@@ -63,6 +63,8 @@ class App {
 -- GENERATE BY ItemSetGen.ts
 select(2,...).ItemSetMake()`);
 
+        write('\n');
+
         for (const i of data) {
             write(`S(${i.id})`);
             write(`B'${i.threshold.join('/')}'`);
@@ -79,6 +81,7 @@ select(2,...).ItemSetMake()`);
 
                 write(`I(${slot},${item})`);
             }
+            write('\n');
         }
 
         file.close();

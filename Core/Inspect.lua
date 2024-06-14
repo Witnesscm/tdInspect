@@ -38,6 +38,16 @@ local Encoder = ns.Encoder
 
 local C_Engraving = C_Engraving
 
+local function sleep(n)
+    local co = coroutine.running()
+
+    C_Timer.After(n, function()
+        coroutine.resume(co)
+    end)
+
+    coroutine.yield()
+end
+
 ---@class Inspect: AceAddon-3.0, AceEvent-3.0, AceComm-3.0
 local Inspect = ns.Addon:NewModule('Inspect', 'AceEvent-3.0', 'AceComm-3.0')
 
@@ -45,6 +55,7 @@ function Inspect:OnInitialize()
     self.unitName = nil
     self.waitingItems = {}
     self.userCache = ns.Addon.db.global.userCache
+    self.stepTimer = {}
 
     self.db = setmetatable({}, {
         __index = function(_, k)
@@ -280,6 +291,9 @@ function Inspect:CanBlizzardInspect(unit)
     if UnitIsDeadOrGhost(unit) then
         return false
     end
+    if InCombatLockdown() then
+        return false
+    end
     if not CheckInteractDistance(unit, 1) then
         return false
     end
@@ -322,22 +336,47 @@ function Inspect:Query(unit, name)
 
     if queryEquip or queryTalent or queryGlyph or queryRune then
 
-        self:SendCommMessage(ALA_PREFIX, ns.Ala:PackQuery(queryEquip, queryTalent, queryGlyph, queryRune), 'WHISPER',
-                             self.unitName)
+        local co = coroutine.create(function()
+            local me = self:IsCharacterHasProto(self.unitName, 'tdInspect')
+            local ala = self:IsCharacterHasProto(self.unitName, 'TalentEmu')
 
-        self:SendCommMessage(PROTO_PREFIX,
-                             Serializer:Serialize('Q', queryTalent, queryEquip, PROTO_VERSION, queryGlyph, queryRune),
-                             'WHISPER', self.unitName)
+
+            self:ClearCharacterProto(self.unitName, 'tdInspect')
+            self:SendCommMessage(PROTO_PREFIX, Serializer:Serialize('Q', queryTalent, queryEquip, PROTO_VERSION,
+                                                                    queryGlyph, queryRune), 'WHISPER', self.unitName)
+
+            if me then
+                sleep(1)
+            end
+
+            if self:IsCharacterHasProto(self.unitName, 'tdInspect') then
+                return
+            end
+
+            self:ClearCharacterProto(self.unitName, 'TalentEmu')
+            self:SendCommMessage(ALA_PREFIX, ns.Ala:PackQuery(queryEquip, queryTalent, queryGlyph, queryRune),
+                                 'WHISPER', self.unitName)
+
+            if ala then
+                sleep(1)
+            end
+
+            if self:IsCharacterHasProto(self.unitName, 'TalentEmu') then
+                return
+            end
+
+            if queryTalent then
+                self:SendCommMessage(ALA_PREFIX, '_q_tal', 'WHISPER', self.unitName)
+            end
+
+            if queryEquip then
+                self:SendCommMessage(ALA_PREFIX, '_q_equ', 'WHISPER', self.unitName)
+            end
+        end)
+
+        coroutine.resume(co)
     end
 
-    if queryTalent then
-        self:SendCommMessage(ALA_PREFIX, '_q_tal', 'WHISPER', self.unitName)
-    end
-
-    if queryEquip then
-        self:SendCommMessage(ALA_PREFIX, '_q_equ', 'WHISPER', self.unitName)
-    end
-    
     self:CheckQuery()
 end
 
@@ -351,6 +390,16 @@ function Inspect:BuildCharacterDb(name)
     self.userCache[name] = self.userCache[name] or {}
     self.userCache[name].timestamp = time()
     return self.userCache[name]
+end
+
+function Inspect:IsCharacterHasProto(name, proto)
+    return self.userCache[name] and self.userCache[name].proto and self.userCache[name].proto[proto]
+end
+
+function Inspect:ClearCharacterProto(name, proto)
+    if self.userCache[name] and self.userCache[name].proto then
+        self.userCache[name].proto[proto] = nil
+    end
 end
 
 function Inspect:INSPECT_READY(_, guid)
@@ -388,8 +437,8 @@ function Inspect:INSPECT_READY(_, guid)
         db.race = select(3, UnitRace(self.unit))
         db.level = UnitLevel(self.unit)
         db.talents = Encoder:PackTalents(true)
-        db.numGroups = GetNumTalentGroups(true)
-        db.activeGroup = GetActiveTalentGroup(true)
+        db.numGroups = GetNumTalentGroups and GetNumTalentGroups(true) or 1
+        db.activeGroup = GetActiveTalentGroup and GetActiveTalentGroup(true) or 1
 
         self:TryFireMessage(self.unit, name, db)
     end
@@ -424,6 +473,10 @@ function Inspect:UpdateCharacter(sender, data)
     if data.runes then
         db.runes = data.runes
     end
+    if data.v2 then
+        db.proto = db.proto or {}
+        db.proto.TalentEmu = true
+    end
 
     self:TryFireMessage(nil, name, db)
 end
@@ -432,7 +485,7 @@ function Inspect:OnComm(cmd, sender, ...)
     if cmd == 'Q' then
         local queryTalent, queryEquip, protoVersion, queryGlyph, queryRune = ...
         if not protoVersion or protoVersion == 1 then
-            local talent = queryTalent and Encoder:PackTalent(nil, GetActiveTalentGroup(), true) or nil
+            local talent = queryTalent and Encoder:PackTalent(nil, 1, true) or nil
             local equips = queryEquip and Encoder:PackEquips(true) or nil
             local class = select(3, UnitClass('player'))
             local race = select(3, UnitRace('player'))
@@ -441,6 +494,9 @@ function Inspect:OnComm(cmd, sender, ...)
 
             self:SendCommMessage(PROTO_PREFIX, msg, 'WHISPER', sender)
         elseif protoVersion >= 2 then
+            if C_Engraving and C_Engraving.IsEngravingEnabled() then
+                C_Engraving.RefreshRunesList()
+            end
             local numGroups = GetNumTalentGroups()
             local activeGroup = GetActiveTalentGroup()
             local equips = queryEquip and Encoder:PackEquips() or nil
@@ -466,11 +522,14 @@ function Inspect:OnComm(cmd, sender, ...)
         db.level = level
 
         if talent then
-            db.numGroups = 1
-            db.activeGroup = 1
-
+            talent = ns.ResolveTalent(ns.GetClassFileName(class), talent)
             if talent then
-                db.talents = {talent}
+                db.numGroups = 1
+                db.activeGroup = 1
+
+                if talent then
+                    db.talents = {talent}
+                end
             end
         end
 
@@ -491,6 +550,8 @@ function Inspect:OnComm(cmd, sender, ...)
         local name = ns.GetFullName(sender)
         local db = self:BuildCharacterDb(name)
 
+        db.proto = db.proto or {}
+        db.proto.tdInspect = true
         db.class = class
         db.race = race
         db.level = level
@@ -502,6 +563,11 @@ function Inspect:OnComm(cmd, sender, ...)
 
         if talents then
             db.talents = Encoder:UnpackTalents(talents)
+            db.numGroups = #db.talents
+
+            if db.activeGroup > db.numGroups then
+                db.activeGroup = 1
+            end
         end
 
         if equips then
@@ -514,6 +580,11 @@ function Inspect:OnComm(cmd, sender, ...)
 
         if runes then
             db.runes = Encoder:UnpackRunes(runes)
+        end
+
+        if self.stepTimer[name] then
+            self.stepTimer[name]:Cancel()
+            self.stepTimer[name] = nil
         end
 
         self:TryFireMessage(nil, name, db)
@@ -533,7 +604,7 @@ function Inspect:TryFireMessage(unit, name, db)
 end
 
 function Inspect:OnAlaCommand(_, msg, channel, sender)
-    local data = ns.Ala:RecvComm(msg, channel, sender)
+    local data, v2 = ns.Ala:RecvComm(msg, channel, sender)
     if not data then
         return
     end
