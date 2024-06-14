@@ -168,6 +168,7 @@ select(2,...).TalentMake()`
                 }
 
                 write(`N'${tab.names.join('/')}'`);
+                write('\n');
 
                 for (const talent of tab.talents) {
                     {
