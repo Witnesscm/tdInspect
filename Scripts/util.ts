@@ -21,7 +21,7 @@ interface ProjectData {
 const WOW_TOOLS = 'https://wow.tools/dbc/api/export/';
 const WOW_TOOLS2 = 'https://wago.tools/db2/{name}/csv';
 const PROJECTS = new Map([
-    [ProjectId.Classic, { product: 'wow_classic_era' }],
+    [ProjectId.Classic, { product: 'wow_classic_era_ptr' }],
     [ProjectId.WLK, { product: 'wow_classic' }],
 ]);
 
@@ -38,18 +38,11 @@ export class WowToolsClient {
     }
 
     private async fetchVersion() {
-        const resp = await fetch('https://wago.tools');
-        const body = await resp.text();
+        const product = this.pro.product;
+        const resp = await fetch(`https://wago.tools/api/builds/${product}/latest`);
+        const data = await resp.json();
 
-        const match = [...body.matchAll(/data-page="([^"]+)"/g)];
-        if (!match || match.length < 1) {
-            throw Error();
-        }
-
-        const data = JSON.parse(Html5Entities.decode(match[0][1]));
-
-        const versions = data?.props?.versions as { product: string; version: string }[];
-        const version = versions?.filter(({ product }) => product === this.pro.product)[0].version;
+        const version = data?.version;
         if (!version) {
             throw Error();
         }
