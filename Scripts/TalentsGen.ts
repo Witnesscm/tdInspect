@@ -151,12 +151,12 @@ select(2,...).TalentMake()`
         );
 
         write(`D'${LOCALES.map(([, l]) => l).join('/')}'`);
-        write('\n');
+        //write('\n');
 
         for (const cls of classTabs) {
             console.log(`For ${cls.fileName}`);
 
-            write(`C'${cls.fileName}'\n`);
+            write(`C'${cls.fileName}'`);
 
             for (const tab of cls.tabs) {
                 {
@@ -168,7 +168,7 @@ select(2,...).TalentMake()`
                 }
 
                 write(`N'${tab.names.join('/')}'`);
-                write('\n');
+                //write('\n');
 
                 for (const talent of tab.talents) {
                     {
@@ -190,7 +190,7 @@ select(2,...).TalentMake()`
                             }
                         }
                     }
-                    write('\n');
+                    //write('\n');
                 }
             }
         }
