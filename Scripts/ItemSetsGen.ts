@@ -15,7 +15,7 @@ class App {
     }
 
     async getItemSetSpells() {
-        const csv = await this.cli.fetchTable('itemsetspell');
+        const csv = await this.cli.fetchTable('ItemSetSpell');
         return csv.map((x) => ({
             setId: Number.parseInt(x[4]),
             threshold: Number.parseInt(x[3]),
@@ -23,7 +23,7 @@ class App {
     }
 
     async getItemSets() {
-        const csv = await this.cli.fetchTable('itemset');
+        const csv = await this.cli.fetchTable('ItemSet');
         return csv
             .map((x) => ({
                 id: Number.parseInt(x[0]),
@@ -38,7 +38,7 @@ class App {
     }
 
     async getItemSlots() {
-        const csv = await this.cli.fetchTable('item');
+        const csv = await this.cli.fetchTable('Item');
         return new Map(csv.map((x) => [Number.parseInt(x[0]), Number.parseInt(x[4])]));
     }
 
@@ -89,7 +89,7 @@ select(2,...).ItemSetMake()`);
 }
 
 async function main() {
-    await new App(ProjectId.WLK).run('Data/ItemSet.WLK.lua');
+    //await new App(ProjectId.WLK).run('Data/ItemSet.WLK.lua');
     await new App(ProjectId.Classic).run('Data/ItemSet.lua');
 }
 

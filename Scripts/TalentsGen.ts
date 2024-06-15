@@ -50,12 +50,12 @@ class App {
     }
 
     async getTalentTabNames(locale: string) {
-        const csv = await this.cli.fetchTable('talenttab', locale);
+        const csv = await this.cli.fetchTable('TalentTab', locale);
         return new Map(csv.map(([id, name]) => [Number.parseInt(id), name]));
     }
 
     async getTalentTabs() {
-        const csv = await this.cli.fetchTable('talenttab');
+        const csv = await this.cli.fetchTable('TalentTab');
         const names = new Map(
             await Promise.all(
                 LOCALES.map(
@@ -67,15 +67,15 @@ class App {
         return csv.map((x) => ({
             id: Number.parseInt(x[0]),
             bg: x[2],
-            order: Number.parseInt(x[3]),
-            classMask: Number.parseInt(x[5]),
-            icon: Number.parseInt(x[7]),
+            order: Number.parseInt(x[4]),
+            classMask: Number.parseInt(x[6]),
+            icon: Number.parseInt(x[8]),
             names: LOCALES.map(([, l]) => l).map((l) => names.get(l)?.get(Number.parseInt(x[0]))),
         }));
     }
 
     async getTalents() {
-        const csv = await this.cli.fetchTable('talent');
+        const csv = await this.cli.fetchTable('Talent');
 
         return csv.map((x, i) => ({
             index: i,
@@ -200,7 +200,7 @@ select(2,...).TalentMake()`
 }
 
 async function main() {
-    await new App(ProjectId.WLK).run('Data/Talents.WLK.lua');
+    //await new App(ProjectId.WLK).run('Data/Talents.WLK.lua');
     await new App(ProjectId.Classic).run('Data/Talents.lua');
 }
 
